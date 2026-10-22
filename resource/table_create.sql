@@ -33,12 +33,3 @@ CREATE TABLE IF NOT EXISTS mp_regime_history (
     regime_kr VARCHAR(50) NOT NULL,  -- 한글 국면 명 (골디락스, 과열 등)
     created_at TIMESTAMP DEFAULT NOW() -- 판정 및 저장 시간
 );
-
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS dgs3m NUMERIC(6, 2);
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS dgs2 NUMERIC(6, 2);
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS dgs10 NUMERIC(6, 2);
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS dgs30 NUMERIC(6, 2);
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS t10y3m NUMERIC(6, 2);
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS hy_spread NUMERIC(6, 2);
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS cpi_yoy NUMERIC(6, 2);
-ALTER TABLE mp_macro_market_data ADD COLUMN IF NOT EXISTS dollar NUMERIC(8, 2);
