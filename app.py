@@ -70,9 +70,18 @@ SLEEVE_COLORS = {
 
 HISTORY_WINDOWS = (
     ("5y", {"ko": "5년", "en": "5Y"}),
+    ("3y", {"ko": "3년", "en": "3Y"}),
     ("1y", {"ko": "1년", "en": "1Y"}),
     ("6m", {"ko": "6개월", "en": "6M"}),
 )
+
+REGIME_WINDOWS = (
+    ("5y", {"ko": "5년", "en": "5Y"}),
+    ("3y", {"ko": "3년", "en": "3Y"}),
+    ("1y", {"ko": "1년", "en": "1Y"}),
+)
+
+METRIC_COLUMNS = 5
 
 
 def _empty(error: str | None = None) -> dict:
@@ -156,8 +165,9 @@ def main() -> None:
     latest = market.sort_values("date").iloc[-1] if not market.empty else pd.Series(dtype=float)
     _render_macro_metrics(lang, latest)
     _render_regime(text, lang, regimes)
-    _render_portfolio(text, lang, regimes)
+    _render_regime_history(text, lang, regimes)
     _render_history(text, lang, market)
+    _render_portfolio(text, lang, regimes)
 
 
 def _run_refresh(text: dict) -> None:
@@ -183,10 +193,17 @@ def _metric_specs() -> list[dict]:
 def _render_macro_metrics(lang: str, latest: pd.Series) -> None:
     for group in config.METRIC_GROUPS:
         st.markdown(f"**{group[lang]}**")
-        columns = st.columns(len(group["metrics"]))
-        for column, spec in zip(columns, group["metrics"]):
-            value = _latest_number(latest, spec["column"])
-            column.metric(spec[lang], _fmt(value, digits=spec["digits"], suffix=spec["suffix"]))
+        metrics = group["metrics"]
+        for offset in range(0, len(metrics), METRIC_COLUMNS):
+            chunk = metrics[offset : offset + METRIC_COLUMNS]
+            columns = st.columns(METRIC_COLUMNS, gap="small")
+            for column, spec in zip(columns, chunk):
+                value = _latest_number(latest, spec["column"])
+                column.metric(
+                    spec[lang],
+                    _fmt(value, digits=spec["digits"], suffix=spec["suffix"]),
+                    border=True,
+                )
 
 
 def _render_regime(text: dict, lang: str, regimes: pd.DataFrame) -> None:
@@ -197,15 +214,33 @@ def _render_regime(text: dict, lang: str, regimes: pd.DataFrame) -> None:
 
     latest = regimes.sort_values("date").iloc[-1]
     regime_en = str(latest["regime_en"])
-    regime_label = _regime_label(regime_en, lang)
     as_of = pd.to_datetime(latest["date"]).date()
+    _regime_banner(regime_en, _regime_label(regime_en, lang))
+    st.caption(f"{text['as_of']}: {as_of.isoformat()}")
 
-    left, right = st.columns((0.7, 1.3))
-    with left:
-        _regime_banner(regime_en, regime_label)
-        st.caption(f"{text['as_of']}: {as_of.isoformat()}")
-    with right:
-        st.plotly_chart(_regime_trend_figure(regimes, lang, text), width="stretch")
+
+def _render_regime_history(text: dict, lang: str, regimes: pd.DataFrame) -> None:
+    st.subheader(text["regime_trend"])
+    if regimes.empty:
+        st.info(text["no_regime"])
+        return
+
+    windows = {key: labels for key, labels in REGIME_WINDOWS}
+    window = st.radio(
+        text["range"],
+        list(windows),
+        format_func=lambda key: windows[key][lang],
+        horizontal=True,
+        key="regime_range",
+    )
+    dated = regimes.copy()
+    dated["date"] = pd.to_datetime(dated["date"])
+    start = _window_start(dated["date"].max(), str(window))
+    windowed = dated.loc[dated["date"] >= start]
+    if windowed.empty:
+        st.info(text["no_regime"])
+        return
+    st.plotly_chart(_regime_trend_figure(windowed, lang, text), width="stretch")
 
 
 def _render_portfolio(text: dict, lang: str, regimes: pd.DataFrame) -> None:
@@ -298,10 +333,9 @@ def _render_history(text: dict, lang: str, market: pd.DataFrame) -> None:
 
 
 def _window_start(end: pd.Timestamp, key: str) -> pd.Timestamp:
-    if key == "5y":
-        return end - pd.DateOffset(years=5)
-    if key == "1y":
-        return end - pd.DateOffset(years=1)
+    years = {"5y": 5, "3y": 3, "1y": 1}
+    if key in years:
+        return end - pd.DateOffset(years=years[key])
     return end - pd.DateOffset(months=6)
 
 
